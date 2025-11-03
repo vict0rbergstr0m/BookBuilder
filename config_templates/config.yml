@@ -1,0 +1,21 @@
+book_details:
+  title: "Book title"
+  author: "Author name"
+  dedication: "I'd like to thank my lovely mother."
+
+# Paths are relative to BookBuilder folder
+paths:
+  output_dir_name: "output"
+  filters_dir_name: "BookBuilder/filters"
+  latex_template_file: "config/latex_template.tex"
+  longform_index_path: "path/to/Longform/Index.md"
+  part_divider_key: "Part"
+
+build_settings:
+  main_tex_filename: "book.tex"
+  pdf_filename_template: "book.pdf"
+  statistics_filename: "statistics.md"
+  lua_filters:
+    # - "underline.lua"
+    # - "test_filter.lua"
+    - "center-stars.lua"
