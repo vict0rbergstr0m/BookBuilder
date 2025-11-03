@@ -15,3 +15,19 @@
 * Create a longform project as you would in Obsidian.
 * Setup paths and settings in `../config/config.yml`
 * Create latex template in `../config/latex_template.yml`
+
+### Example project directories
+```
+├───Book 1 - Hello world
+│   ├───Chapters
+│   └───Index.md
+├───Book 2 - Goodbye world
+│   ├───Chapters
+│   └───Index.md
+├───BookBuilder
+│   └───xxx
+├───config
+│   ├───config.yml
+│   └───latex_template.tex
+└───output
+```
