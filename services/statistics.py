@@ -20,14 +20,14 @@ class StatisticsService:
     def __init__(self, config: StatisticsConfig = None):
         self.config = config or StatisticsConfig()
 
-    def generate_statistics(self, 
+    def generate_statistics(self,
                           collection: ChapterCollection,
                           book_title: str,
                           output_dir: str,
                           statistics_file: str) -> None:
         """
         Generate and save book statistics.
-        
+
         Args:
             collection: Collection of chapters
             book_title: Title of the book
@@ -42,7 +42,7 @@ class StatisticsService:
     def _calculate_statistics(self, collection: ChapterCollection) -> Dict:
         """Calculate various statistics from the chapter collection."""
         full_chapters = collection.get_full_chapters()
-        
+
         stats = {
             'total_chapters': len(full_chapters),
             'total_words': collection.total_word_count(),
@@ -61,7 +61,7 @@ class StatisticsService:
             act_length = sum(ch.chapter_length for ch in chapters_in_act)
             act_todos = sum(ch.count_todos() for ch in chapters_in_act)
             act_comments = sum(ch.count_comments() for ch in chapters_in_act)
-            
+
             stats['acts_stats'].append({
                 'part': part,
                 'num_chapters': len(chapters_in_act),
@@ -70,7 +70,7 @@ class StatisticsService:
                 'todos': act_todos,
                 'comments': act_comments
             })
-            
+
             stats['total_comments'] += act_comments
             stats['total_todos'] += act_todos
 
@@ -78,7 +78,7 @@ class StatisticsService:
         if full_chapters:
             stats['pages'] = stats['total_words'] / self.config.words_per_page
             stats['avg_chapter_length'] = stats['total_words'] / len(full_chapters)
-            
+
             shortest = collection.get_shortest_chapter()
             longest = collection.get_longest_chapter()
             if shortest:
@@ -101,7 +101,7 @@ class StatisticsService:
                          statistics_file: str) -> None:
         """Write statistics to a text file."""
         output_path = os.path.join(output_dir, statistics_file)
-        
+
         with open(output_path, "w") as f:
             def write(*args):
                 print(*args, file=f)
@@ -118,7 +118,7 @@ class StatisticsService:
                       f"Words: {act_stat['words']}")
                 write(f"          Average Chapter Length: "
                       f"{act_stat['avg_chapter_length']:.2f} words")
-                
+
                 if act_stat['todos'] > 0:
                     write(f"          TODOs in Part {act_stat['part']}: "
                           f"{act_stat['todos']}")
@@ -158,11 +158,18 @@ class StatisticsService:
 
         # Convert to dataframe
         df = pd.DataFrame(progress_data)
-        
+
         # Append to existing file if it exists
         if os.path.exists(progress_file):
             df_existing = pd.read_csv(progress_file)
-            df = pd.concat([df_existing, df], ignore_index=True)
-            
+            try: #This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
+                if df_existing["Total Words"].values[-1] != df["Total Words"].values[-1]:
+                    df = pd.concat([df_existing, df], ignore_index=True)
+                else:
+                    print("Info: Total words unchanged between versions. Skipping updating statistics.")
+            except:
+                print(f"Warning: Failed to read last row in {progress_file}, appending new value.")
+                df = pd.concat([df_existing, df], ignore_index=True)
+
         df.to_csv(progress_file, index=False)
         print(f"Saved progress to: {progress_file}")
