@@ -159,9 +159,9 @@ class StatisticsService:
         # Convert to dataframe
         df = pd.DataFrame(progress_data)
 
-        def save():
-            df = pd.concat([df_existing, df], ignore_index=True)
-            df.to_csv(progress_file, index=False)
+        def save(df_to_save, df_to_concat):
+            df_to_save = pd.concat([df_to_concat, df_to_save], ignore_index=True)
+            df_to_save.to_csv(progress_file, index=False)
             print(f"Saved progress to: {progress_file}")
 
         # Append to existing file if it exists
@@ -169,7 +169,7 @@ class StatisticsService:
             df_existing = pd.read_csv(progress_file)
             try: #This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
                 if df_existing["Total Words"].values[-1] != df["Total Words"].values[-1]:
-                    save()
+                    save(df, df_existing)
                 else:
                     print("Info: Total words unchanged between versions. Skipping updating statistics.")
             except:
