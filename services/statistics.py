@@ -159,17 +159,19 @@ class StatisticsService:
         # Convert to dataframe
         df = pd.DataFrame(progress_data)
 
+        def save():
+            df = pd.concat([df_existing, df], ignore_index=True)
+            df.to_csv(progress_file, index=False)
+            print(f"Saved progress to: {progress_file}")
+
         # Append to existing file if it exists
         if os.path.exists(progress_file):
             df_existing = pd.read_csv(progress_file)
             try: #This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
                 if df_existing["Total Words"].values[-1] != df["Total Words"].values[-1]:
-                    df = pd.concat([df_existing, df], ignore_index=True)
+                    save()
                 else:
                     print("Info: Total words unchanged between versions. Skipping updating statistics.")
             except:
                 print(f"Warning: Failed to read last row in {progress_file}, appending new value.")
-                df = pd.concat([df_existing, df], ignore_index=True)
-
-        df.to_csv(progress_file, index=False)
-        print(f"Saved progress to: {progress_file}")
+                save()
