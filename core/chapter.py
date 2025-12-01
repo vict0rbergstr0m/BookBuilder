@@ -25,9 +25,12 @@ class Chapter:
 
     @property
     def chapter_length(self) -> int:
-        """Return the word count of the chapter."""
+        """Return the word count of the chapter, ignoring %%comment%% tokens."""
         if self._word_count is None:
-            self._word_count = len(self.text.split())
+            # Remove tokens like %%anything%%
+            import re
+            cleaned = re.sub(r"%%.*?%%", "", self.text)
+            self._word_count = len(cleaned.split())
         return self._word_count
 
     def _load_text(self) -> str:
