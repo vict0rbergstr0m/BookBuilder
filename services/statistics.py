@@ -161,13 +161,15 @@ class StatisticsService:
 
         def save(df_to_save, df_to_concat):
             df_to_save = pd.concat([df_to_concat, df_to_save], ignore_index=True)
+            df_to_save = df_to_save.dropna(how='all')
             df_to_save.to_csv(progress_file, index=False)
             print(f"Saved progress to: {progress_file}")
 
         # Append to existing file if it exists
         if os.path.exists(progress_file):
             df_existing = pd.read_csv(progress_file)
-            try: #This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
+            try: #TODO: This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
+                df_existing = df_existing.dropna(how='all')
                 if df_existing["Total Words"].values[-1] != df["Total Words"].values[-1]:
                     save(df, df_existing)
                 else:

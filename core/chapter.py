@@ -46,7 +46,7 @@ class Chapter:
 
     def is_full_chapter(self) -> bool:
         """Check if this is a full chapter (not a fragment or placeholder)."""
-        return self.chapter == round(self.chapter) and self.chapter_length > 250
+        return self.chapter == round(self.chapter) and self.chapter_length > 500
 
     def count_todos(self) -> int:
         """Count the number of TODO items in the chapter."""
