@@ -19,6 +19,7 @@ class BookDetails:
     title: str = DEFAULT_BOOK_TITLE
     author: str = DEFAULT_BOOK_AUTHOR
     dedication: str = ""
+    target_word_count: int = 0
 
 
 @dataclass
@@ -86,6 +87,8 @@ class Config:
         self.book_details.title = self._deep_get(config_data, 'book_details.title', DEFAULT_BOOK_TITLE)
         self.book_details.author = self._deep_get(config_data, 'book_details.author', DEFAULT_BOOK_AUTHOR)
         self.book_details.dedication = self._deep_get(config_data, 'book_details.dedication', "")
+        self.book_details.target_word_count = self._deep_get(config_data, 'target_word_count', 0)
+        print(self.book_details.target_word_count);
 
         # Paths
         self.paths.output_dir_name = self._deep_get(config_data, 'paths.output_dir_name', DEFAULT_OUTPUT_DIR_NAME)
