@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 
 class BookGenerator:
     """Main class for orchestrating book generation."""
-    
+
     def __init__(self):
         """Initialize the book generator with its dependencies."""
         self.config = Config()
         self.chapter_collection = ChapterCollection()
-        
+
         # Initialize services
         self.pandoc = PandocService(PandocConfig(
             lua_filters=self.config.build.lua_filters
@@ -54,15 +54,15 @@ class BookGenerator:
     def check_dependencies(self) -> bool:
         """Check if all required external tools are available."""
         logger.info("Checking for dependencies...")
-        
+
         if not self.pandoc.is_available():
             logger.error("pandoc not found. Please install pandoc and ensure it's in your PATH.")
             return False
-            
+
         if not self.latex.is_available():
             logger.error("pdflatex not found. Please install a LaTeX distribution and ensure it's in your PATH.")
             return False
-            
+
         logger.info("All dependencies found.")
         return True
 
@@ -70,13 +70,13 @@ class BookGenerator:
         """Load all chapters from the configured directory."""
         logger.info("Loading chapters...")
         current_act = 0
-        
+
         for title in self.config.chapter_titles:
             md_path = os.path.join(self.config.chapters_dir, f"{title}.md")
-            
+
             if self.config.paths.part_divider_key in title:
                 current_act += 1
-                
+
             chapter = Chapter(
                 chapter=len(self.chapter_collection.chapters) + 1,
                 title=title,
@@ -84,7 +84,7 @@ class BookGenerator:
                 part=current_act
             )
             self.chapter_collection.add_chapter(chapter)
-        
+
         if not self.chapter_collection.chapters:
             logger.warning(f"No chapter files found in '{self.config.chapters_dir}'")
 
@@ -92,11 +92,11 @@ class BookGenerator:
         """Convert all chapters to LaTeX files."""
         logger.info("\nConverting chapters to LaTeX...")
         converted_files = []
-        
+
         for i, chapter in enumerate(self.chapter_collection.chapters):
             tex_file_name = f"tmp_{i}_{chapter.title.replace(' ', '_')}.tex"
             tex_file_path = os.path.join(self.config.output_dir, tex_file_name)
-            
+
             try:
                 self.pandoc.convert_to_latex(
                     chapter.md_path,
@@ -107,14 +107,14 @@ class BookGenerator:
             except (PandocError, FileNotFoundError) as e:
                 logger.error(f"Failed to convert chapter '{chapter.title}': {e}")
                 raise
-                
+
         return converted_files
 
     def generate_main_tex(self, chapter_tex_files: List[str]) -> str:
         """Generate the main LaTeX file that includes all chapters."""
         logger.info("\nGenerating main LaTeX file...")
         main_tex_path = os.path.join(self.config.output_dir, self.config.build.main_tex_filename)
-        
+
         # Replace placeholders in template
         content = self.config.latex_template_content.replace(
             "BOOK_TITLE", self.config.book_details.title
@@ -168,6 +168,8 @@ class BookGenerator:
                 self.chapter_collection,
                 self.config.book_details.title,
                 self.config.output_dir,
+                self.config.book_details.target_word_count,
+                self.config.book_details.start_date,
                 self.config.build.statistics_filename
             )
         except Exception as e:
@@ -177,7 +179,7 @@ class BookGenerator:
     def run(self) -> int:
         """
         Run the complete book generation process.
-        
+
         Returns:
             0 for success, 1 for failure
         """
@@ -192,7 +194,7 @@ class BookGenerator:
             # Process chapters
             self.load_chapters()
             converted_files = self.convert_chapters_to_tex()
-            
+
             # Generate and compile main TeX file
             main_tex_path = self.generate_main_tex(converted_files)
             if not self.compile_and_clean(main_tex_path):
@@ -200,7 +202,7 @@ class BookGenerator:
 
             # Generate statistics
             self.generate_statistics()
-            
+
             return 0
 
         except Exception as e:

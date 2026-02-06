@@ -24,6 +24,8 @@ class StatisticsService:
                           collection: ChapterCollection,
                           book_title: str,
                           output_dir: str,
+                          target_word_count: int,
+                          start_date: str,
                           statistics_file: str) -> None:
         """
         Generate and save book statistics.
@@ -35,7 +37,7 @@ class StatisticsService:
             statistics_file: Name of the statistics file
         """
         stats = self._calculate_statistics(collection)
-        self._write_statistics(stats, book_title, output_dir, statistics_file)
+        self._write_statistics(stats, book_title, output_dir, target_word_count, start_date, statistics_file)
         if self.config.csv_progress_enabled:
             self._update_progress_csv(stats, book_title, output_dir)
 
@@ -98,6 +100,8 @@ class StatisticsService:
                          stats: Dict,
                          book_title: str,
                          output_dir: str,
+                         target_word_count: int,
+                         start_date: str,
                          statistics_file: str) -> None:
         """Write statistics to a text file."""
         output_path = os.path.join(output_dir, statistics_file)
@@ -107,10 +111,20 @@ class StatisticsService:
                 print(*args, file=f)
                 print(*args)  # Also print to console
 
+            words_left = target_word_count - stats['total_words']
+            days_written = (pd.Timestamp.now() - pd.to_datetime(start_date)).days
+            avrg_per_day = stats['total_words']/days_written
+            days_left = words_left/avrg_per_day
+            finish_date = pd.Timestamp.now() + pd.Timedelta(days=days_left)
+
             write("\n### " + book_title + " Statistics")
             write(f"Total Chapters: {stats['total_chapters']}")
             write(f"Total Words: {stats['total_words']}")
             write(f"Number of acts: {stats['number_of_acts']}")
+            write(f"Target words {target_word_count}")
+            write(f"Words per day {int(avrg_per_day)}")
+            write(f"Days left {int(days_left)}")
+            write(f"Est. completion date {finish_date.strftime('%d %B %Y')}")
 
             for act_stat in stats['acts_stats']:
                 write(f"      Part {act_stat['part']} - "

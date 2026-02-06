@@ -2,6 +2,8 @@ book_details:
   title: "Book title"
   author: "Author name"
   dedication: "I'd like to thank my lovely mother."
+  target_word_count: 90000
+  start_date: 2025-09-15
 
 # Paths are relative to BookBuilder folder
 paths:
