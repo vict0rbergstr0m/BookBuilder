@@ -113,8 +113,9 @@ class StatisticsService:
 
             words_left = target_word_count - stats['total_words']
             days_written = (pd.Timestamp.now() - pd.to_datetime(start_date)).days
-            avrg_per_day = stats['total_words']/days_written
-            days_left = words_left/avrg_per_day
+            avrg_per_day = (stats['total_words']/days_written);
+            WRITING_EFFICIENCY_FACTOR = 0.75
+            days_left = (words_left/avrg_per_day)/WRITING_EFFICIENCY_FACTOR
             finish_date = pd.Timestamp.now() + pd.Timedelta(days=days_left)
 
             write("\n### " + book_title + " Statistics")
