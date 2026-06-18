@@ -74,7 +74,7 @@ def main():
 
     if not os.path.exists(input_pdf_path):
         print(f"Error: Could not find PDF at {input_pdf_path}")
-        print("Please ensure the book has been built using LaTeX first.")
+        print("Please ensure the book has been built using BookBuilder.py first.")
         sys.exit(1)
 
     print(f"Reading {input_pdf_path}...")
