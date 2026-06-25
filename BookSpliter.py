@@ -118,12 +118,15 @@ def main():
 
         available_chapters = sorted(chapter_mapping.keys())
 
-        if start_ch not in available_chapters:
+        if start_ch not in available_chapters and start_ch != 0:
             print(f"Error: Chapter {start_ch} not found in document.")
             print(f"Available chapters: {available_chapters}")
             sys.exit(1)
 
-        start_page_idx = chapter_mapping[start_ch]
+        if start_ch == 0:
+            start_page_idx = 0
+        else:
+            start_page_idx = chapter_mapping[start_ch]
 
         # Figure out the end page by looking at the start of the chapter *after* end_ch
         if end_ch not in available_chapters:
