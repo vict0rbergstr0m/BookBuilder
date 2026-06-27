@@ -64,6 +64,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-c', '--chapter', type=str, help="Chapter(s) to keep (e.g., '15' or '10-15')")
     group.add_argument('-p', '--page', type=str, help="Page(s) to keep (e.g., '314' or '120-150')")
+    parser.add_argument('-d', '--directory', type=str, help="Optional output directory (defaults to configured output directory)")
 
     args = parser.parse_args()
 
@@ -71,6 +72,10 @@ def main():
     config = Config()
     pdf_filename = config.get_pdf_filename()
     input_pdf_path = os.path.join(config.output_dir, pdf_filename)
+    output_dir = args.directory if args.directory else config.output_dir
+
+    if args.directory:
+        os.makedirs(output_dir, exist_ok=True)
 
     if not os.path.exists(input_pdf_path):
         print(f"Error: Could not find PDF at {input_pdf_path}")
@@ -94,9 +99,12 @@ def main():
             sys.exit(1)
 
         # Convert 1-indexed user input to 0-indexed PyPDF indices
+        """
+        TODO: since the pdf pages and page number on the page are not the same, consider
+        some smart regex to find the first numbered page... Maybe this should be another arg/flag.
+        """
         start_page_idx = max(0, start_p - 1)
         end_page_idx = min(total_pages - 1, end_p - 1)
-
         if start_p == end_p:
             output_suffix = f"Page_{start_p}"
         else:
@@ -164,7 +172,7 @@ def main():
 
     base_name = os.path.splitext(pdf_filename)[0]
     output_filename = f"{base_name}_{output_suffix}.pdf"
-    output_path = os.path.join(config.output_dir, output_filename)
+    output_path = os.path.join(output_dir, output_filename)
 
     with open(output_path, "wb") as output_pdf:
         writer.write(output_pdf)
