@@ -127,7 +127,7 @@ class BookGenerator:
         )
 
         # Add chapter includes
-        chapters_tex = ""
+        chapters_tex = "\n"
         if not chapter_tex_files:
             chapters_tex = "% No chapters found or processed.\n\\chapter*{Placeholder Chapter}\n"
             chapters_tex += "Your book content will appear here.\n"
