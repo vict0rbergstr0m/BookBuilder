@@ -21,6 +21,7 @@ class LaTeXConfig:
     keep_log_on_error: bool = True
     keep_log_on_success: bool = False
     num_passes: int = 3  # Number of compilation passes
+    shell_escape: bool = False
 
 
 class LaTeXService:
@@ -35,7 +36,7 @@ class LaTeXService:
     def _run_pdflatex(self, main_tex_path: str, output_dir: str, pass_num: int) -> subprocess.CompletedProcess:
         """Run a single pass of pdflatex."""
         print(f"  pdflatex Pass {pass_num}...")
-        
+
         cmd = [
             "pdflatex",
             f"-output-directory={output_dir}",
@@ -43,6 +44,9 @@ class LaTeXService:
             "-file-line-error",
             main_tex_path
         ]
+
+        if self.config.shell_escape:
+            cmd.insert(1, "-shell-escape")
 
         try:
             return subprocess.run(
@@ -67,14 +71,14 @@ class LaTeXService:
     def compile_pdf(self, main_tex_path: str, output_dir: str) -> str:
         """
         Compile LaTeX to PDF.
-        
+
         Args:
             main_tex_path: Path to main LaTeX file
             output_dir: Output directory for compilation
-        
+
         Returns:
             Path to the generated PDF file
-        
+
         Raises:
             LaTeXError: If compilation fails
             FileNotFoundError: If input file doesn't exist
@@ -105,13 +109,13 @@ class LaTeXService:
     def cleanup_files(self, output_dir: str, main_tex_filename: str) -> None:
         """
         Clean up intermediate LaTeX files.
-        
+
         Args:
             output_dir: Directory containing the files to clean
             main_tex_filename: Name of the main TeX file
         """
         print("\nCleaning up intermediate files...")
-        
+
         # Extensions to clean up
         extensions = ["aux", "toc", "out", "lof", "lot", "bbl", "blg", "synctex.gz"]
         if not self.config.keep_log_on_success:
@@ -122,7 +126,7 @@ class LaTeXService:
             pattern = os.path.join(output_dir, f"*.{ext}")
             for f_path in glob.glob(pattern):
                 # Skip log file if it should be kept
-                if (ext == "log" and 
+                if (ext == "log" and
                     os.path.basename(f_path) == main_tex_filename.replace(".tex", ".log") and
                     self.config.keep_log_on_success):
                     continue

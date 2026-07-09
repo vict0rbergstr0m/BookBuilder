@@ -2,7 +2,7 @@
 Configuration management for the book generation system.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Any, List, Optional
 import os
 import yaml
 from .constants import (
@@ -42,19 +42,27 @@ class BuildConfig:
     lua_filters: List[str] = field(default_factory=lambda: DEFAULT_LUA_FILTERS)
 
 
+@dataclass
+class ChapterIconConfig:
+    """Per-chapter icon configuration."""
+    title: str = ""
+    icon_path: str = ""
+
+
 class Config:
     """Main configuration class."""
     def __init__(self):
         self.book_details = BookDetails()
         self.paths = PathConfig()
         self.build = BuildConfig()
+        self.chapter_icons: List[ChapterIconConfig] = []
         self.latex_template_content: str = ""
         self.chapter_titles: List[str] = []
         self._load_config()
         self._load_longform_index()
         self._load_latex_template()
 
-    def _deep_get(self, dictionary: dict, keys: str, default: any = None) -> any:
+    def _deep_get(self, dictionary: dict, keys: str, default: Any = None) -> Any:
         """Helper to get nested dictionary values."""
         keys_list = keys.split('.')
         d = dictionary
@@ -104,6 +112,34 @@ class Config:
         self.build.statistics_filename = self._deep_get(config_data, 'build_settings.statistics_filename', DEFAULT_STATISTICS_FILENAME)
         lua_filters = self._deep_get(config_data, 'build_settings.lua_filters', DEFAULT_LUA_FILTERS)
         self.build.lua_filters = lua_filters if isinstance(lua_filters, list) else DEFAULT_LUA_FILTERS
+
+        chapter_icons = config_data.get('chapter_icons', [])
+        if isinstance(chapter_icons, list):
+            self.chapter_icons = [
+                ChapterIconConfig(
+                    title=item.get('title', ''),
+                    icon_path=item.get('icon_path', item.get('icon', ''))
+                )
+                for item in chapter_icons
+                if isinstance(item, dict)
+            ]
+
+    def get_chapter_icon_path(self, chapter_title: str) -> str:
+        """Return the configured icon path for a chapter title, if any."""
+        for icon_config in self.chapter_icons:
+            if icon_config.title == chapter_title and icon_config.icon_path:
+                if os.path.isabs(icon_config.icon_path):
+                    return icon_config.icon_path
+                return os.path.abspath(os.path.join(PROJECT_ROOT, icon_config.icon_path))
+        return ""
+
+    def uses_svg_chapter_icons(self) -> bool:
+        """Return True if any configured chapter icon uses an SVG file."""
+        return any(
+            icon_config.icon_path.lower().endswith('.svg')
+            for icon_config in self.chapter_icons
+            if icon_config.icon_path
+        )
 
     def _load_longform_index(self) -> None:
         """Load Longform index file and extract chapter titles."""

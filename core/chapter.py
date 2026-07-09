@@ -13,6 +13,7 @@ class Chapter:
     title: str
     md_path: str
     part: int = 0
+    icon_path: Optional[str] = None
     _text: Optional[str] = None
     _word_count: Optional[int] = None
 

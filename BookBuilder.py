@@ -73,6 +73,7 @@ class BookGenerator:
 
         for title in self.config.chapter_titles:
             md_path = os.path.join(self.config.chapters_dir, f"{title}.md")
+            icon_path = self.config.get_chapter_icon_path(title)
 
             if self.config.paths.part_divider_key in title:
                 current_act += 1
@@ -81,7 +82,8 @@ class BookGenerator:
                 chapter=len(self.chapter_collection.chapters) + 1,
                 title=title,
                 md_path=md_path,
-                part=current_act
+                part=current_act,
+                icon_path=icon_path or None
             )
             self.chapter_collection.add_chapter(chapter)
 
@@ -130,7 +132,13 @@ class BookGenerator:
             chapters_tex = "% No chapters found or processed.\n\\chapter*{Placeholder Chapter}\n"
             chapters_tex += "Your book content will appear here.\n"
         else:
-            for tex_file in chapter_tex_files:
+            for chapter, tex_file in zip(self.chapter_collection.chapters, chapter_tex_files):
+                if chapter.icon_path:
+                    icon_relative_path = get_relative_path(chapter.icon_path, self.config.output_dir).replace("\\", "/")
+                    if icon_relative_path.lower().endswith(".svg"):
+                        chapters_tex += f"\\chaptericonsvg{{{os.path.splitext(icon_relative_path)[0]}}}\n"
+                    else:
+                        chapters_tex += f"\\chaptericonpng{{{icon_relative_path}}}\n"
                 relative_path = get_relative_path(tex_file, self.config.output_dir).replace("\\", "/")
                 chapters_tex += f"\\clearpage\n\\input{{{relative_path}}}\n"
 
@@ -149,6 +157,7 @@ class BookGenerator:
     def compile_and_clean(self, main_tex_path: str) -> bool:
         """Compile the LaTeX file to PDF and clean up."""
         try:
+            self.latex.config.shell_escape = self.config.uses_svg_chapter_icons()
             self.latex.compile_pdf(main_tex_path, self.config.output_dir)
             self.latex.cleanup_files(
                 self.config.output_dir,
