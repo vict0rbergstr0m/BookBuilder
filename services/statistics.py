@@ -17,7 +17,7 @@ class StatisticsConfig:
 
 class StatisticsService:
     """Service for generating and managing book statistics."""
-    def __init__(self, config: StatisticsConfig = None):
+    def __init__(self, config: Optional[StatisticsConfig] = None):
         self.config = config or StatisticsConfig()
 
     def generate_statistics(self,
@@ -37,9 +37,13 @@ class StatisticsService:
             statistics_file: Name of the statistics file
         """
         stats = self._calculate_statistics(collection)
-        self._write_statistics(stats, book_title, output_dir, target_word_count, start_date, statistics_file)
         if self.config.csv_progress_enabled:
-            self._update_progress_csv(stats, book_title, output_dir)
+            progress_data = self._update_progress_csv(stats, book_title, output_dir)
+            self._add_progress_statistics(stats, progress_data)
+            self._save_derived_progress_statistics(progress_data, stats, book_title, output_dir)
+        else:
+            self._add_progress_statistics(stats, None)
+        self._write_statistics(stats, book_title, output_dir, target_word_count, start_date, statistics_file)
 
     def _calculate_statistics(self, collection: ChapterCollection) -> Dict:
         """Calculate various statistics from the chapter collection."""
@@ -96,6 +100,102 @@ class StatisticsService:
 
         return stats
 
+    def _add_progress_statistics(self,
+                               stats: Dict,
+                               progress_data: Optional[pd.DataFrame]) -> None:
+        """Add analysis that can be derived from the progress CSV."""
+        total_average = 0
+        average_30_days = 0
+        words_since_update = 0
+        words_last_7_days = 0
+        words_last_30_days = 0
+        active_writing_days = 0
+        longest_gap = 0
+        comments_trend = 0
+
+        if progress_data is not None and not progress_data.empty:
+            progress_data = progress_data.copy()
+            progress_data['Date and time'] = pd.to_datetime(
+                progress_data['Date and time'], format='mixed', errors='coerce'
+            )
+            progress_data['Total Words'] = pd.to_numeric(
+                progress_data['Total Words'], errors='coerce'
+            )
+            progress_data['Comments'] = pd.to_numeric(
+                progress_data['Comments'], errors='coerce'
+            )
+            progress_data = progress_data.dropna(subset=['Date and time', 'Total Words'])
+            progress_data = progress_data.sort_values('Date and time')
+
+            if len(progress_data) > 1:
+                first = progress_data.iloc[0]
+                last = progress_data.iloc[-1]
+                previous = progress_data.iloc[-2]
+                words_since_update = last['Total Words'] - previous['Total Words']
+                total_days = (last['Date and time'] - first['Date and time']).total_seconds() / 86400
+                if total_days > 0:
+                    total_average = (last['Total Words'] - first['Total Words']) / total_days
+
+                cutoff = last['Date and time'] - pd.Timedelta(days=30)
+                older_rows = progress_data[progress_data['Date and time'] <= cutoff]
+                first_30_days = older_rows.iloc[-1] if not older_rows.empty else first
+                cutoff_7 = last['Date and time'] - pd.Timedelta(days=7)
+                older_rows_7 = progress_data[progress_data['Date and time'] <= cutoff_7]
+                first_7_days = older_rows_7.iloc[-1] if not older_rows_7.empty else first
+                words_last_7_days = last['Total Words'] - first_7_days['Total Words']
+                words_last_30_days = last['Total Words'] - first_30_days['Total Words']
+                days_30 = (last['Date and time'] - first_30_days['Date and time']).total_seconds() / 86400
+                if days_30 > 0:
+                    average_30_days = (last['Total Words'] - first_30_days['Total Words']) / days_30
+
+                progress_data['Calendar day'] = progress_data['Date and time'].dt.date
+                daily_words = progress_data.groupby('Calendar day')['Total Words'].last()
+                active_writing_days = int((daily_words.diff() > 0).sum())
+
+                gaps = progress_data['Date and time'].diff().dt.total_seconds() / 86400
+                longest_gap = gaps.max() if not gaps.empty else 0
+
+                if 'Comments' in progress_data and not progress_data['Comments'].isna().all():
+                    comments_start = older_rows['Comments'].dropna()
+                    comments_end = progress_data['Comments'].dropna()
+                    if not comments_start.empty and not comments_end.empty:
+                        comments_trend = comments_end.iloc[-1] - comments_start.iloc[-1]
+
+        stats['average_words_per_day'] = total_average
+        stats['average_words_per_day_30'] = average_30_days
+        stats['words_since_update'] = words_since_update
+        stats['words_last_7_days'] = words_last_7_days
+        stats['words_last_30_days'] = words_last_30_days
+        stats['active_writing_days'] = active_writing_days
+        stats['longest_gap_days'] = longest_gap
+        stats['comments_trend'] = comments_trend
+
+    def _save_derived_progress_statistics(self,
+                                         progress_data: pd.DataFrame,
+                                         stats: Dict,
+                                         book_title: str,
+                                         output_dir: str) -> None:
+        """Store the latest CSV-derived analysis alongside the snapshot."""
+        safe_name = book_title.replace(" ", "_").replace(":", "")
+        progress_file = os.path.join(output_dir, f"{safe_name}_progress.csv")
+        derived_data = {
+            'Words Added Since Last Update': stats['words_since_update'],
+            'Words Added Last 7 Days': stats['words_last_7_days'],
+            'Words Added Last 30 Days': stats['words_last_30_days'],
+            'Lifetime Average Words Per Calendar Day': stats['average_words_per_day'],
+            '30 Day Average Words Per Calendar Day': stats['average_words_per_day_30'],
+            'Average Words Per Active Writing Day': (
+                stats['total_words'] / stats['active_writing_days']
+                if stats['active_writing_days'] > 0 else 0
+            ),
+            'Active Writing Days': stats['active_writing_days'],
+            'Longest Gap Between Updates (Days)': stats['longest_gap_days'],
+            'Comments Trend (30 Days)': stats['comments_trend']
+        }
+        for column, value in derived_data.items():
+            progress_data.loc[progress_data.index[-1], column] = value
+        progress_data.to_csv(progress_file, index=False)
+
     def _write_statistics(self,
                          stats: Dict,
                          book_title: str,
@@ -111,21 +211,35 @@ class StatisticsService:
                 print(*args, file=f)
                 print(*args)  # Also print to console
 
-            words_left = target_word_count - stats['total_words']
-            days_written = (pd.Timestamp.now() - pd.to_datetime(start_date)).days
-            avrg_per_day = (stats['total_words']/days_written);
-            WRITING_EFFICIENCY_FACTOR = 0.75
-            days_left = (words_left/avrg_per_day)/WRITING_EFFICIENCY_FACTOR
-            finish_date = pd.Timestamp.now() + pd.Timedelta(days=days_left)
-
             write("\n### " + book_title + " Statistics")
             write(f"Total Chapters: {stats['total_chapters']}")
             write(f"Total Words: {stats['total_words']}")
             write(f"Number of acts: {stats['number_of_acts']}")
             write(f"Target words {target_word_count}")
-            write(f"Words per day {int(avrg_per_day)}")
-            write(f"Days left {int(days_left)}")
-            write(f"Est. completion date {finish_date.strftime('%d %B %Y')}")
+            write(f"Words added since last update {stats['words_since_update']:+g}")
+            write(f"Words added last 7 days {stats['words_last_7_days']:+g}")
+            write(f"Words added last 30 days {stats['words_last_30_days']:+g}")
+            write(f"Lifetime average words per calendar day {int(stats['average_words_per_day'])}")
+            write(f"30-day average words per calendar day {int(stats['average_words_per_day_30'])}")
+            write(f"Average words per active writing day {stats['total_words'] / stats['active_writing_days']:.2f}"
+                  if stats['active_writing_days'] else "Average words per active writing day 0")
+            write(f"Active writing days {stats['active_writing_days']}")
+            write(f"Longest gap between updates {stats['longest_gap_days']:.2f} days")
+            write(f"Comments trend (30 days) {stats['comments_trend']:+g}")
+
+            words_left = target_word_count - stats['total_words']
+            efficiency_factor = 0.75
+            total_average = stats['average_words_per_day']
+            average_30_days = stats['average_words_per_day_30']
+            if total_average > 0:
+                days_left = words_left / total_average / efficiency_factor
+                finish_date = pd.Timestamp.now() + pd.Timedelta(days=days_left)
+                write(f"Words left {words_left}")
+                write(f"Days left (total average) {int(days_left)}")
+                write(f"Est. completion date {finish_date.strftime('%d %B %Y')}")
+            if average_30_days > 0:
+                days_left_30 = words_left / average_30_days / efficiency_factor
+                write(f"Days left (30-day average) {int(days_left_30)}")
 
             for act_stat in stats['acts_stats']:
                 write(f"      Part {act_stat['part']} - "
@@ -156,7 +270,7 @@ class StatisticsService:
     def _update_progress_csv(self,
                            stats: Dict,
                            book_title: str,
-                           output_dir: str) -> None:
+                           output_dir: str) -> pd.DataFrame:
         """Update the progress tracking CSV file."""
         safe_name = book_title.replace(" ", "_").replace(":", "")
         progress_file = os.path.join(output_dir, f"{safe_name}_progress.csv")
@@ -179,16 +293,19 @@ class StatisticsService:
             df_to_save = df_to_save.dropna(how='all')
             df_to_save.to_csv(progress_file, index=False)
             print(f"Saved progress to: {progress_file}")
+            return df_to_save
 
         # Append to existing file if it exists
         if os.path.exists(progress_file):
-            df_existing = pd.read_csv(progress_file)
-            try: #TODO: This is horribly ugly lol. Remove try catch and make sure the values in the if are ok manually instead...
-                df_existing = df_existing.dropna(how='all')
-                if df_existing["Total Words"].values[-1] != df["Total Words"].values[-1]:
-                    save(df, df_existing)
-                else:
+            try:
+                df_existing = pd.read_csv(progress_file).dropna(how='all')
+                if (not df_existing.empty and "Total Words" in df_existing and
+                        df_existing["Total Words"].iloc[-1] == df["Total Words"].iloc[-1]):
                     print("Info: Total words unchanged between versions. Skipping updating statistics.")
-            except:
+                    return df_existing
+                return save(df, df_existing)
+            except (OSError, pd.errors.ParserError, KeyError, IndexError):
                 print(f"Warning: Failed to read last row in {progress_file}, appending new value.")
-                save()
+                return save(df, pd.DataFrame())
+
+        return save(df, pd.DataFrame())
