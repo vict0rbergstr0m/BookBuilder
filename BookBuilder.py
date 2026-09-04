@@ -158,7 +158,11 @@ class BookGenerator:
         """Compile the LaTeX file to PDF and clean up."""
         try:
             self.latex.config.shell_escape = self.config.uses_svg_chapter_icons()
-            self.latex.compile_pdf(main_tex_path, self.config.output_dir)
+            self.latex.compile_pdf(
+                main_tex_path,
+                self.config.output_dir,
+                self.config.get_pdf_filename()
+            )
             self.latex.cleanup_files(
                 self.config.output_dir,
                 self.config.build.main_tex_filename

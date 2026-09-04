@@ -79,7 +79,9 @@ def safe_write_file(filepath: str,
         IOError: If there's an error writing the file
     """
     if create_dirs:
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        directory = os.path.dirname(filepath)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
     
     try:
         with open(filepath, 'w', encoding=encoding) as f:

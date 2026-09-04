@@ -124,7 +124,11 @@ def is_subpath(path: str, parent: str) -> bool:
     parent = os.path.abspath(parent)
     
     try:
-        os.path.relpath(path, parent)
-        return True
+        relative_path = os.path.relpath(
+            os.path.abspath(path), os.path.abspath(parent)
+        )
     except ValueError:
         return False
+    return relative_path != os.pardir and not relative_path.startswith(
+        os.pardir + os.sep
+    )

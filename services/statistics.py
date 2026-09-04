@@ -2,6 +2,7 @@
 Service for generating and managing book statistics.
 """
 from dataclasses import dataclass
+import math
 from typing import Dict, List, Optional
 import os
 import pandas as pd
@@ -109,6 +110,7 @@ class StatisticsService:
         words_since_update = 0
         words_last_7_days = 0
         words_last_30_days = 0
+        words_added_on_active_days = 0
         active_writing_days = 0
         longest_gap = 0
         comments_trend = 0
@@ -150,13 +152,18 @@ class StatisticsService:
 
                 progress_data['Calendar day'] = progress_data['Date and time'].dt.date
                 daily_words = progress_data.groupby('Calendar day')['Total Words'].last()
-                active_writing_days = int((daily_words.diff() > 0).sum())
+                daily_additions = daily_words.diff().fillna(daily_words.iloc[0])
+                active_additions = daily_additions[daily_additions > 0]
+                active_writing_days = len(active_additions)
+                words_added_on_active_days = active_additions.sum()
 
                 gaps = progress_data['Date and time'].diff().dt.total_seconds() / 86400
                 longest_gap = gaps.max() if not gaps.empty else 0
 
                 if 'Comments' in progress_data and not progress_data['Comments'].isna().all():
-                    comments_start = older_rows['Comments'].dropna()
+                    comments_start = (older_rows['Comments'].dropna()
+                                      if not older_rows.empty
+                                      else progress_data['Comments'].dropna())
                     comments_end = progress_data['Comments'].dropna()
                     if not comments_start.empty and not comments_end.empty:
                         comments_trend = comments_end.iloc[-1] - comments_start.iloc[-1]
@@ -166,7 +173,12 @@ class StatisticsService:
         stats['words_since_update'] = words_since_update
         stats['words_last_7_days'] = words_last_7_days
         stats['words_last_30_days'] = words_last_30_days
+        stats['words_added_on_active_days'] = words_added_on_active_days
         stats['active_writing_days'] = active_writing_days
+        stats['average_words_per_active_day'] = (
+            words_added_on_active_days / active_writing_days
+            if active_writing_days else 0
+        )
         stats['longest_gap_days'] = longest_gap
         stats['comments_trend'] = comments_trend
 
@@ -184,10 +196,7 @@ class StatisticsService:
             'Words Added Last 30 Days': stats['words_last_30_days'],
             'Lifetime Average Words Per Calendar Day': stats['average_words_per_day'],
             '30 Day Average Words Per Calendar Day': stats['average_words_per_day_30'],
-            'Average Words Per Active Writing Day': (
-                stats['total_words'] / stats['active_writing_days']
-                if stats['active_writing_days'] > 0 else 0
-            ),
+            'Average Words Per Active Writing Day': stats['average_words_per_active_day'],
             'Active Writing Days': stats['active_writing_days'],
             'Longest Gap Between Updates (Days)': stats['longest_gap_days'],
             'Comments Trend (30 Days)': stats['comments_trend']
@@ -221,8 +230,7 @@ class StatisticsService:
             write(f"Words added last 30 days {stats['words_last_30_days']:+g}")
             write(f"Lifetime average words per calendar day {int(stats['average_words_per_day'])}")
             write(f"30-day average words per calendar day {int(stats['average_words_per_day_30'])}")
-            write(f"Average words per active writing day {stats['total_words'] / stats['active_writing_days']:.2f}"
-                  if stats['active_writing_days'] else "Average words per active writing day 0")
+            write(f"Average words per active writing day {stats['average_words_per_active_day']:.2f}")
             write(f"Active writing days {stats['active_writing_days']}")
             write(f"Longest gap between updates {stats['longest_gap_days']:.2f} days")
             write(f"Comments trend (30 days) {stats['comments_trend']:+g}")
@@ -231,6 +239,12 @@ class StatisticsService:
             efficiency_factor = 0.75
             total_average = stats['average_words_per_day']
             average_30_days = stats['average_words_per_day_30']
+            average_chapter_length = stats.get('avg_chapter_length', 0)
+            if average_chapter_length > 0:
+                chapters_left = math.ceil(words_left / average_chapter_length)
+                write(f"Chapters left {chapters_left}")
+                estimated_total_chapters = stats['total_chapters'] + chapters_left
+                write(f"Estimated total chapters {estimated_total_chapters}")
             if total_average > 0:
                 days_left = words_left / total_average / efficiency_factor
                 finish_date = pd.Timestamp.now() + pd.Timedelta(days=days_left)

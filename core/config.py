@@ -153,7 +153,10 @@ class Config:
                     scenes.append(scene)
             return scenes
 
-        index_data = self._load_yaml_file(self.paths.longform_index_path)
+        index_path = self.paths.longform_index_path
+        if not os.path.isabs(index_path):
+            index_path = os.path.join(PROJECT_ROOT, index_path)
+        index_data = self._load_yaml_file(index_path)
         scenes = index_data.get('longform', {}).get('scenes', [])
         self.chapter_titles = get_titles(scenes)
         self.scene_folder = index_data.get('longform', {}).get('sceneFolder', '')

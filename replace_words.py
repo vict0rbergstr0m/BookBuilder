@@ -6,10 +6,10 @@ def replace_words(directory, a, b):
         for file in files:
             if file.endswith('.md'):
                 file_path = os.path.join(root, file)
-                with open(file_path, 'r') as f:
+                with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
                 content = content.replace(a, b)
-                with open(file_path, 'w') as f:
+                with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
 
 if __name__ == '__main__':

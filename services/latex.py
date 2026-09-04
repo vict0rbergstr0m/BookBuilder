@@ -33,12 +33,17 @@ class LaTeXService:
         """Check if pdflatex is available in the system."""
         return bool(shutil.which("pdflatex"))
 
-    def _run_pdflatex(self, main_tex_path: str, output_dir: str, pass_num: int) -> subprocess.CompletedProcess:
+    def _run_pdflatex(self,
+                      main_tex_path: str,
+                      output_dir: str,
+                      pass_num: int,
+                      pdf_stem: str) -> subprocess.CompletedProcess:
         """Run a single pass of pdflatex."""
         print(f"  pdflatex Pass {pass_num}...")
 
         cmd = [
             "pdflatex",
+            f"-jobname={pdf_stem}",
             f"-output-directory={output_dir}",
             "-interaction=nonstopmode",
             "-file-line-error",
@@ -68,7 +73,10 @@ class LaTeXService:
         except FileNotFoundError:
             raise LaTeXError("pdflatex command not found. Is it installed and in your PATH?")
 
-    def compile_pdf(self, main_tex_path: str, output_dir: str) -> str:
+    def compile_pdf(self,
+                    main_tex_path: str,
+                    output_dir: str,
+                    pdf_filename: Optional[str] = None) -> str:
         """
         Compile LaTeX to PDF.
 
@@ -88,12 +96,14 @@ class LaTeXService:
 
         print(f"\nCompiling '{os.path.basename(main_tex_path)}' to PDF...")
 
+        pdf_name = pdf_filename or os.path.basename(main_tex_path).replace(".tex", ".pdf")
+        pdf_stem = os.path.splitext(os.path.basename(pdf_name))[0]
+
         # Run multiple passes for references and ToC
         for i in range(self.config.num_passes):
-            self._run_pdflatex(main_tex_path, output_dir, i + 1)
+            self._run_pdflatex(main_tex_path, output_dir, i + 1, pdf_stem)
 
         # Check for output PDF
-        pdf_name = os.path.basename(main_tex_path).replace(".tex", ".pdf")
         pdf_path = os.path.join(output_dir, pdf_name)
 
         if not os.path.exists(pdf_path):

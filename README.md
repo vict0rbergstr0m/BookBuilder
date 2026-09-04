@@ -7,7 +7,7 @@
 * Obsidian markdown editor [Obsidian](https://obsidian.md/).
 * Depends on an index file from the [Longform](https://github.com/kevboh/longform) Obsidian extension
 * install python
-* run using `python scripts/main.py`
+* run using `python BookBuilder.py` from the `BookBuilder` directory
 #### Extra dependencies
 * For plotting and viewing data [Charts](https://obsidian.md/plugins?id=obsidian-charts) and [Dataview](https://obsidian.md/plugins?id=dataview)
 
